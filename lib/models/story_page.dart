@@ -1,4 +1,5 @@
 import 'story_choice.dart';
+import 'story_background_motion.dart';
 import 'story_character_layer.dart';
 
 class StoryPage {
@@ -7,6 +8,7 @@ class StoryPage {
     required this.backgroundImage,
     required this.title,
     required this.narrationText,
+    this.backgroundMotion = StoryBackgroundMotion.none,
     this.titleCardText,
     this.showTitleCard = false,
     this.chapterId,
@@ -22,6 +24,7 @@ class StoryPage {
   final String backgroundImage;
   final String title;
   final String narrationText;
+  final StoryBackgroundMotion backgroundMotion;
   final String? titleCardText;
   final bool showTitleCard;
   final String? chapterId;

@@ -1,11 +1,13 @@
 import 'package:adventure_pages/app.dart';
 import 'package:adventure_pages/data/demo_story_data.dart';
 import 'package:adventure_pages/models/character_type.dart';
+import 'package:adventure_pages/models/story_background_motion.dart';
 import 'package:adventure_pages/models/story_save_data.dart';
 import 'package:adventure_pages/screens/story_screen.dart';
 import 'package:adventure_pages/services/audio_service.dart';
 import 'package:adventure_pages/services/save_service.dart';
 import 'package:adventure_pages/widgets/choice_button.dart';
+import 'package:adventure_pages/widgets/story_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -142,6 +144,129 @@ void main() {
     expect(find.textContaining('Gökyüzü'), findsNothing);
     expect(find.textContaining('Denizler'), findsNothing);
     expect(find.textContaining('Ejderha'), findsNothing);
+  });
+
+  testWidgets('none background motion stays static', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: StoryBackground(backgroundImage: introMeetingImage),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('story-background-motion-slowZoomIn')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('story-background-motion-slowZoomOut')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('story-background-motion-panLeft')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('story-background-motion-panRight')),
+      findsNothing,
+    );
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
+  testWidgets('slowZoomIn gently scales only the background image', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: StoryBackground(
+          backgroundImage: introMeetingImage,
+          motion: StoryBackgroundMotion.slowZoomIn,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    const motionKey = ValueKey('story-background-motion-slowZoomIn');
+    final initialScale = tester.widget<Transform>(find.byKey(motionKey));
+    expect(initialScale.transform.storage[0], closeTo(1, 0.001));
+
+    await tester.pump(const Duration(seconds: 7));
+    final middleScale = tester.widget<Transform>(find.byKey(motionKey));
+    expect(middleScale.transform.storage[0], greaterThan(1.02));
+    expect(middleScale.transform.storage[0], lessThan(1.08));
+  });
+
+  testWidgets('panRight moves the background by a small horizontal amount', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: StoryBackground(
+          backgroundImage: candyCaramelChaseImage,
+          motion: StoryBackgroundMotion.panRight,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    const motionKey = ValueKey('story-background-motion-panRight');
+    final initialTransform = tester.widget<Transform>(find.byKey(motionKey));
+    final initialOffset = initialTransform.transform.storage[12];
+
+    await tester.pump(const Duration(seconds: 3));
+    final movedTransform = tester.widget<Transform>(find.byKey(motionKey));
+    final movedOffset = movedTransform.transform.storage[12];
+
+    expect(initialOffset.abs(), lessThan(12));
+    expect(movedOffset, greaterThan(initialOffset));
+    expect(movedOffset.abs(), lessThan(12));
+  });
+
+  testWidgets('scene transition replaces the background motion', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StoryScreen(
+          characterType: CharacterType.girl,
+          heroName: 'Mina',
+          friendName: 'Aras',
+          saveService: _MemorySaveService(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(
+      find.byKey(const ValueKey('story-background-motion-slowZoomIn')),
+      findsOneWidget,
+    );
+
+    tester
+        .widget<ChoiceButton>(
+          find.byKey(const ValueKey('choice-button-play_outside')),
+        )
+        .onPressed();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(
+      find.byKey(const ValueKey('story-background-motion-slowZoomIn')),
+      findsNothing,
+    );
+
+    tester
+        .widget<ChoiceButton>(
+          find.byKey(const ValueKey('choice-button-mysterious_book')),
+        )
+        .onPressed();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(
+      find.byKey(const ValueKey('story-background-motion-panRight')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('boy selection uses Aras and Mina when name is blank', (
@@ -341,7 +466,11 @@ void main() {
     final riskyChoice = find.byKey(
       const ValueKey('choice-button-caramel_trap'),
     );
+    final backgroundMotion = find.byKey(
+      const ValueKey('story-background-motion-panRight'),
+    );
 
+    expect(backgroundMotion, findsOneWidget);
     expect(
       find.descendant(of: panel, matching: find.byType(Scrollbar)),
       findsOneWidget,
@@ -362,6 +491,7 @@ void main() {
       find.descendant(of: scrollView, matching: riskyChoice),
       findsOneWidget,
     );
+    expect(find.ancestor(of: panel, matching: backgroundMotion), findsNothing);
 
     final panelRect = tester.getRect(panel);
     expect(panelRect.height, greaterThan(280 * 0.70));
@@ -466,7 +596,15 @@ void main() {
     );
 
     final pofuduk = find.byKey(const ValueKey('character-layer-pofuduk'));
+    final backgroundMotion = find.byKey(
+      const ValueKey('story-background-motion-slowZoomIn'),
+    );
     expect(pofuduk, findsOneWidget);
+    expect(backgroundMotion, findsOneWidget);
+    expect(
+      find.ancestor(of: pofuduk, matching: backgroundMotion),
+      findsNothing,
+    );
     expect(find.byKey(const ValueKey('panel-pofuduk_meeting')), findsOneWidget);
 
     await tester.tapAt(tester.getTopLeft(pofuduk) + const Offset(30, 30));

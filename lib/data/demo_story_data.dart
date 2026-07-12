@@ -1,4 +1,5 @@
 import '../models/story_choice.dart';
+import '../models/story_background_motion.dart';
 import '../models/story_character_layer.dart';
 import '../models/story_page.dart';
 
@@ -28,6 +29,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'front_yard_meeting': StoryPage(
     id: 'front_yard_meeting',
     backgroundImage: introMeetingImage,
+    backgroundMotion: StoryBackgroundMotion.slowZoomIn,
     title: 'Evin Önünde Buluşma',
     titleCardText: 'ADVENTURE PAGES',
     showTitleCard: true,
@@ -52,6 +54,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'mysterious_book': StoryPage(
     id: 'mysterious_book',
     backgroundImage: introBookFoundImage,
+    backgroundMotion: StoryBackgroundMotion.panRight,
     title: 'Ağacın Altındaki Kitap',
     chapterId: 'intro',
     narrationText:
@@ -62,6 +65,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'inspect_book': StoryPage(
     id: 'inspect_book',
     backgroundImage: introBookFoundImage,
+    backgroundMotion: StoryBackgroundMotion.slowZoomIn,
     title: 'Gizemli Kapak',
     chapterId: 'intro',
     narrationText:
@@ -73,6 +77,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'book_glows': StoryPage(
     id: 'book_glows',
     backgroundImage: introBookGlowImage,
+    backgroundMotion: StoryBackgroundMotion.slowZoomIn,
     title: 'Parlayan Sayfalar',
     chapterId: 'intro',
     narrationText:
@@ -84,6 +89,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'portal_opens': StoryPage(
     id: 'portal_opens',
     backgroundImage: introPortalImage,
+    backgroundMotion: StoryBackgroundMotion.slowZoomIn,
     title: 'Açılan Portal',
     chapterId: 'intro',
     narrationText:
@@ -95,6 +101,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'pulled_inside': StoryPage(
     id: 'pulled_inside',
     backgroundImage: introPortalImage,
+    backgroundMotion: StoryBackgroundMotion.slowZoomIn,
     title: 'Kitabın İçine',
     chapterId: 'intro',
     narrationText:
@@ -105,6 +112,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'candy_land': StoryPage(
     id: 'candy_land',
     backgroundImage: candyArrivalImage,
+    backgroundMotion: StoryBackgroundMotion.slowZoomOut,
     title: 'Şeker Diyarı',
     titleCardText: 'ŞEKER DİYARI',
     showTitleCard: true,
@@ -129,6 +137,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'candy_village': StoryPage(
     id: 'candy_village',
     backgroundImage: candyArrivalImage,
+    backgroundMotion: StoryBackgroundMotion.panLeft,
     title: 'Şeker Köyü',
     chapterId: 'candy_land',
     narrationText:
@@ -139,6 +148,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'pofuduk_meeting': StoryPage(
     id: 'pofuduk_meeting',
     backgroundImage: candyVillageBackground,
+    backgroundMotion: StoryBackgroundMotion.slowZoomIn,
     fallbackBackgroundImage: candyPofudukImage,
     title: 'Pofuduk ile Karşılaşma',
     chapterId: 'candy_land',
@@ -199,6 +209,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'look_around': StoryPage(
     id: 'look_around',
     backgroundImage: candyArrivalImage,
+    backgroundMotion: StoryBackgroundMotion.panLeft,
     title: 'Şeker Çiçekleri',
     chapterId: 'candy_land',
     narrationText:
@@ -209,6 +220,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'caramel_warning': StoryPage(
     id: 'caramel_warning',
     backgroundImage: candyCaramelChaseImage,
+    backgroundMotion: StoryBackgroundMotion.panRight,
     title: 'Karamel Tehlikesi',
     chapterId: 'candy_land',
     narrationText:
@@ -227,6 +239,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'caramel_trap': StoryPage(
     id: 'caramel_trap',
     backgroundImage: candyCaramelChaseImage,
+    backgroundMotion: StoryBackgroundMotion.panRight,
     title: 'Yapışkan Kestirme',
     chapterId: 'candy_land',
     narrationText:
@@ -239,6 +252,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'caramel_chase': StoryPage(
     id: 'caramel_chase',
     backgroundImage: candyCaramelChaseImage,
+    backgroundMotion: StoryBackgroundMotion.panRight,
     title: 'Karamel Kovalamacası',
     chapterId: 'candy_land',
     narrationText:
@@ -249,6 +263,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'help_each_other': StoryPage(
     id: 'help_each_other',
     backgroundImage: candyCaramelChaseImage,
+    backgroundMotion: StoryBackgroundMotion.panRight,
     title: 'Birlikte Daha Güçlü',
     chapterId: 'candy_land',
     narrationText:
@@ -269,6 +284,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'castle_view': StoryPage(
     id: 'castle_view',
     backgroundImage: candyCastleShadowImage,
+    backgroundMotion: StoryBackgroundMotion.slowZoomIn,
     title: 'Şeker Kalesi',
     titleCardText: 'ŞEKER KALESİ',
     showTitleCard: true,
@@ -282,6 +298,7 @@ const Map<String, StoryPage> demoStoryPages = {
   'bay_bayat_shadow': StoryPage(
     id: 'bay_bayat_shadow',
     backgroundImage: candyCastleShadowImage,
+    backgroundMotion: StoryBackgroundMotion.slowZoomIn,
     title: 'Bay Bayat\'ın Gölgesi',
     chapterId: 'candy_land',
     narrationText:

@@ -386,7 +386,10 @@ class _StorySceneState extends State<_StoryScene> {
         key: ValueKey('story-background-${page.id}'),
         behavior: HitTestBehavior.opaque,
         onTap: widget.onBackgroundTap,
-        child: StoryBackground(backgroundImage: page.backgroundImage),
+        child: StoryBackground(
+          backgroundImage: page.backgroundImage,
+          motion: page.backgroundMotion,
+        ),
       );
     }
 
@@ -397,6 +400,7 @@ class _StorySceneState extends State<_StoryScene> {
         onTap: widget.onBackgroundTap,
         child: StoryBackground(
           backgroundImage: page.fallbackBackgroundImage ?? page.backgroundImage,
+          motion: page.backgroundMotion,
         ),
       );
     }
@@ -410,6 +414,7 @@ class _StorySceneState extends State<_StoryScene> {
           onTap: widget.onBackgroundTap,
           child: StoryBackground(
             backgroundImage: page.backgroundImage,
+            motion: page.backgroundMotion,
             onImageError: _showLayeredFallback,
           ),
         ),

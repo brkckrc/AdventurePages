@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:adventure_pages/controllers/story_controller.dart';
 import 'package:adventure_pages/data/demo_story_data.dart';
 import 'package:adventure_pages/models/character_type.dart';
+import 'package:adventure_pages/models/story_background_motion.dart';
 import 'package:adventure_pages/models/story_choice.dart';
 import 'package:adventure_pages/models/story_page.dart';
 import 'package:adventure_pages/models/story_save_data.dart';
@@ -151,6 +152,35 @@ void main() {
     for (final term in forbiddenTerms) {
       expect(storySurface, isNot(contains(term)));
     }
+  });
+
+  test('demo pages use the intended background motions', () {
+    const expectedMotions = <String, StoryBackgroundMotion>{
+      'front_yard_meeting': StoryBackgroundMotion.slowZoomIn,
+      'mysterious_book': StoryBackgroundMotion.panRight,
+      'inspect_book': StoryBackgroundMotion.slowZoomIn,
+      'book_glows': StoryBackgroundMotion.slowZoomIn,
+      'portal_opens': StoryBackgroundMotion.slowZoomIn,
+      'pulled_inside': StoryBackgroundMotion.slowZoomIn,
+      'candy_land': StoryBackgroundMotion.slowZoomOut,
+      'candy_village': StoryBackgroundMotion.panLeft,
+      'pofuduk_meeting': StoryBackgroundMotion.slowZoomIn,
+      'look_around': StoryBackgroundMotion.panLeft,
+      'caramel_warning': StoryBackgroundMotion.panRight,
+      'caramel_trap': StoryBackgroundMotion.panRight,
+      'caramel_chase': StoryBackgroundMotion.panRight,
+      'help_each_other': StoryBackgroundMotion.panRight,
+      'castle_view': StoryBackgroundMotion.slowZoomIn,
+      'bay_bayat_shadow': StoryBackgroundMotion.slowZoomIn,
+    };
+
+    for (final entry in expectedMotions.entries) {
+      expect(demoStoryPages[entry.key]?.backgroundMotion, entry.value);
+    }
+    expect(
+      demoStoryPages['play_outside']?.backgroundMotion,
+      StoryBackgroundMotion.none,
+    );
   });
 
   test(
