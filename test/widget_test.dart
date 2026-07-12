@@ -271,6 +271,157 @@ void main() {
     expect(find.textContaining('Mina ve Aras güneş yavaşça'), findsOneWidget);
   });
 
+  testWidgets('story panel stays compact and bottom aligned in landscape', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StoryScreen(
+          characterType: CharacterType.girl,
+          heroName: 'Mina',
+          friendName: 'Aras',
+          saveService: _MemorySaveService(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 1600));
+    await tester.pumpAndSettle();
+
+    final panelRect = tester.getRect(
+      find.byKey(const ValueKey('story-panel-surface-front_yard_meeting')),
+    );
+
+    expect(panelRect.width, closeTo(720, 1));
+    expect(panelRect.height, lessThanOrEqualTo(210));
+    expect(panelRect.bottom, closeTo(585, 1));
+    expect(panelRect.top, greaterThan(600 * 0.55));
+    expect(find.text('Devam et'), findsOneWidget);
+  });
+
+  testWidgets('narration and choices share one scroll area on a small screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(480, 280);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final savedState = _savedAt(
+      'caramel_warning',
+      checkpointPageId: 'caramel_warning',
+    );
+    await _pumpSavedStory(
+      tester,
+      savedState: savedState,
+      saveService: _MemorySaveService(data: savedState),
+    );
+    await tester.pumpAndSettle();
+
+    final panel = find.byKey(
+      const ValueKey('story-panel-surface-caramel_warning'),
+    );
+    final scrollView = find.byKey(
+      const ValueKey('story-panel-scroll-view-caramel_warning'),
+    );
+    final narration = find.textContaining(
+      'Yolun önünde yapışkan karamel dalgaları',
+    );
+    final safeChoice = find.byKey(
+      const ValueKey('choice-button-caramel_chase'),
+    );
+    final riskyChoice = find.byKey(
+      const ValueKey('choice-button-caramel_trap'),
+    );
+
+    expect(
+      find.descendant(of: panel, matching: find.byType(Scrollbar)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: panel, matching: find.byType(SingleChildScrollView)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: scrollView, matching: narration),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: scrollView, matching: safeChoice),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: scrollView, matching: riskyChoice),
+      findsOneWidget,
+    );
+
+    final panelRect = tester.getRect(panel);
+    expect(panelRect.height, greaterThan(280 * 0.70));
+    expect(panelRect.height, lessThanOrEqualTo(280 * 0.82));
+
+    final scrollController = tester
+        .widget<SingleChildScrollView>(scrollView)
+        .controller!;
+    expect(scrollController.position.maxScrollExtent, greaterThan(0));
+    await tester.drag(scrollView, const Offset(0, -120));
+    await tester.pump();
+    expect(scrollController.offset, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('short story content stays compact on a large landscape screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StoryScreen(
+          characterType: CharacterType.girl,
+          heroName: 'Mina',
+          friendName: 'Aras',
+          saveService: _MemorySaveService(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 1600));
+    await tester.pumpAndSettle();
+
+    final panel = find.byKey(
+      const ValueKey('story-panel-surface-front_yard_meeting'),
+    );
+    final scrollView = find.byKey(
+      const ValueKey('story-panel-scroll-view-front_yard_meeting'),
+    );
+    final panelRect = tester.getRect(panel);
+
+    expect(panelRect.width, closeTo(1080, 1));
+    expect(panelRect.height, lessThan(800 * 0.30));
+    expect(panelRect.bottom, closeTo(784, 1));
+    expect(
+      tester
+          .widget<SingleChildScrollView>(scrollView)
+          .controller!
+          .position
+          .maxScrollExtent,
+      0,
+    );
+    expect(find.text('Devam et'), findsOneWidget);
+  });
+
   testWidgets('compact landscape character and story UI does not overflow', (
     tester,
   ) async {

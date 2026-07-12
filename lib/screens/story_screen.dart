@@ -12,7 +12,6 @@ import '../models/story_save_data.dart';
 import '../services/audio_service.dart';
 import '../services/save_service.dart';
 import '../widgets/choice_button.dart';
-import '../widgets/narration_box.dart';
 import '../widgets/story_background.dart';
 import 'chapter_end_screen.dart';
 import 'home_screen.dart';
@@ -96,6 +95,10 @@ class _StoryScreenState extends State<StoryScreen> {
         }
 
         final page = _controller.currentPage;
+        final screenHeight = MediaQuery.sizeOf(context).height;
+        final panelBottomSpacing = (screenHeight * 0.025)
+            .clamp(8.0, 16.0)
+            .toDouble();
 
         return Scaffold(
           body: Stack(
@@ -114,42 +117,43 @@ class _StoryScreenState extends State<StoryScreen> {
               ),
               SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, panelBottomSpacing),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _StoryTopBar(onHome: _goHome),
-                      const Spacer(),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        transitionBuilder: (child, animation) {
-                          final slideAnimation = Tween<Offset>(
-                            begin: const Offset(0, 0.08),
-                            end: Offset.zero,
-                          ).animate(animation);
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          transitionBuilder: (child, animation) {
+                            final slideAnimation = Tween<Offset>(
+                              begin: const Offset(0, 0.08),
+                              end: Offset.zero,
+                            ).animate(animation);
 
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: slideAnimation,
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: _isPanelVisible
-                            ? _StoryPanel(
-                                key: ValueKey('panel-${page.id}'),
-                                page: page,
-                                heroName: _controller.heroName,
-                                friendName: _controller.friendName,
-                                onChoiceSelected: _controller.chooseOption,
-                              )
-                            : _ShowTextHint(
-                                key: const ValueKey('show-text-hint'),
-                                onPressed: _showPanel,
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: slideAnimation,
+                                child: child,
                               ),
+                            );
+                          },
+                          child: _isPanelVisible
+                              ? _StoryPanel(
+                                  key: ValueKey('panel-${page.id}'),
+                                  page: page,
+                                  heroName: _controller.heroName,
+                                  friendName: _controller.friendName,
+                                  onChoiceSelected: _controller.chooseOption,
+                                )
+                              : _ShowTextHint(
+                                  key: const ValueKey('show-text-hint'),
+                                  onPressed: _showPanel,
+                                ),
+                        ),
                       ),
                     ],
                   ),
@@ -639,7 +643,7 @@ class _CharacterDialogueBubble extends StatelessWidget {
   }
 }
 
-class _StoryPanel extends StatelessWidget {
+class _StoryPanel extends StatefulWidget {
   const _StoryPanel({
     super.key,
     required this.page,
@@ -654,36 +658,152 @@ class _StoryPanel extends StatelessWidget {
   final ValueChanged<StoryChoice> onChoiceSelected;
 
   @override
+  State<_StoryPanel> createState() => _StoryPanelState();
+}
+
+class _StoryPanelState extends State<_StoryPanel> {
+  final ScrollController _scrollController = ScrollController();
+  bool _hasOverflow = false;
+  bool _showScrollHint = false;
+  bool _overflowCheckScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_scheduleOverflowCheck);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_scheduleOverflowCheck)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final panelHeight = (screenHeight * 0.50).clamp(132.0, 360.0).toDouble();
-    final narrationText = _resolvePlaceholders(page.narrationText);
+    final screenSize = MediaQuery.sizeOf(context);
+    final compactBoost =
+        ((700.0 - screenSize.height).clamp(0.0, 380.0)) / 380.0;
+    final heightFactor = 0.46 + (compactBoost * 0.36);
+    final maxPanelHeight = (screenSize.height * heightFactor)
+        .clamp(0.0, 640.0)
+        .toDouble();
+    final panelWidth = (screenSize.width * 0.90).clamp(0.0, 1080.0).toDouble();
+    final panelPadding = screenSize.height <= 430
+        ? 16.0
+        : screenSize.height <= 700
+        ? 18.0
+        : 20.0;
+    final narrationFontSize = screenSize.height >= 700 ? 18.0 : 17.0;
+    final narrationText = _resolvePlaceholders(widget.page.narrationText);
+    _scheduleOverflowCheck();
 
     return Align(
       alignment: Alignment.bottomCenter,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {},
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 820),
-          child: SizedBox(
-            height: panelHeight,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _ScrollablePanelSection(
-                    showHint: screenHeight < 430,
-                    child: NarrationBox(narrationText: narrationText),
+        child: SizedBox(
+          key: ValueKey('story-panel-surface-${widget.page.id}'),
+          width: panelWidth,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxPanelHeight),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.64),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              ),
+              child: Stack(
+                children: [
+                  Scrollbar(
+                    key: ValueKey('story-panel-scrollbar-${widget.page.id}'),
+                    controller: _scrollController,
+                    thumbVisibility: _hasOverflow,
+                    child: SingleChildScrollView(
+                      key: ValueKey(
+                        'story-panel-scroll-view-${widget.page.id}',
+                      ),
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        panelPadding,
+                        panelPadding,
+                        panelPadding,
+                        panelPadding + 4,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            narrationText,
+                            style: TextStyle(
+                              color: const Color(0xFFF4F4EE),
+                              fontSize: narrationFontSize,
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (widget.page.choices.isNotEmpty)
+                            SizedBox(height: panelPadding),
+                          for (
+                            var index = 0;
+                            index < widget.page.choices.length;
+                            index++
+                          ) ...[
+                            if (index > 0) const SizedBox(height: 10),
+                            ChoiceButton(
+                              key: ValueKey(
+                                'choice-button-${widget.page.choices[index].nextPageId}',
+                              ),
+                              text: widget.page.choices[index].text,
+                              onPressed: () => widget.onChoiceSelected(
+                                widget.page.choices[index],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                _ChoiceArea(
-                  choices: page.choices,
-                  maxHeight: (panelHeight * 0.60).clamp(86.0, 180.0).toDouble(),
-                  onChoiceSelected: onChoiceSelected,
-                ),
-              ],
+                  if (_showScrollHint)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(8),
+                            ),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.30),
+                              ],
+                            ),
+                          ),
+                          child: const SizedBox(
+                            height: 28,
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -693,131 +813,38 @@ class _StoryPanel extends StatelessWidget {
 
   String _resolvePlaceholders(String text) {
     return text
-        .replaceAll('{{heroName}}', heroName)
-        .replaceAll('{{friendName}}', friendName);
+        .replaceAll('{{heroName}}', widget.heroName)
+        .replaceAll('{{friendName}}', widget.friendName);
   }
-}
 
-class _ChoiceArea extends StatelessWidget {
-  const _ChoiceArea({
-    required this.choices,
-    required this.maxHeight,
-    required this.onChoiceSelected,
-  });
-
-  final List<StoryChoice> choices;
-  final double maxHeight;
-  final ValueChanged<StoryChoice> onChoiceSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    if (choices.length == 1) {
-      final choice = choices.single;
-
-      return Align(
-        alignment: Alignment.centerRight,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 180),
-          child: ChoiceButton(
-            key: ValueKey('choice-button-${choice.nextPageId}'),
-            text: choice.text,
-            onPressed: () => onChoiceSelected(choice),
-          ),
-        ),
-      );
+  void _scheduleOverflowCheck() {
+    if (_overflowCheckScheduled) {
+      return;
     }
 
-    return SizedBox(
-      height: maxHeight,
-      child: _ScrollablePanelSection(
-        showHint: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final choice in choices)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: ChoiceButton(
-                  key: ValueKey('choice-button-${choice.nextPageId}'),
-                  text: choice.text,
-                  onPressed: () => onChoiceSelected(choice),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ScrollablePanelSection extends StatefulWidget {
-  const _ScrollablePanelSection({required this.child, required this.showHint});
-
-  final Widget child;
-  final bool showHint;
-
-  @override
-  State<_ScrollablePanelSection> createState() =>
-      _ScrollablePanelSectionState();
-}
-
-class _ScrollablePanelSectionState extends State<_ScrollablePanelSection> {
-  final ScrollController _controller = ScrollController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+    _overflowCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _overflowCheckScheduled = false;
+      _updateScrollMetrics();
+    });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bottomPadding = widget.showHint ? 18.0 : 0.0;
+  void _updateScrollMetrics() {
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
 
-    return Stack(
-      children: [
-        Scrollbar(
-          controller: _controller,
-          thumbVisibility: widget.showHint,
-          child: SingleChildScrollView(
-            controller: _controller,
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            child: widget.child,
-          ),
-        ),
-        if (widget.showHint)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.24),
-                    ],
-                  ),
-                ),
-                child: const SizedBox(
-                  height: 24,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: Colors.white70,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
+    final position = _scrollController.position;
+    final hasOverflow = position.maxScrollExtent > 0.5;
+    final showScrollHint =
+        hasOverflow && position.pixels < position.maxScrollExtent - 1;
+    if (_hasOverflow == hasOverflow && _showScrollHint == showScrollHint) {
+      return;
+    }
+
+    setState(() {
+      _hasOverflow = hasOverflow;
+      _showScrollHint = showScrollHint;
+    });
   }
 }
