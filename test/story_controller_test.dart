@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:adventure_pages/controllers/story_controller.dart';
 import 'package:adventure_pages/data/demo_story_data.dart';
+import 'package:adventure_pages/models/character_reaction.dart';
 import 'package:adventure_pages/models/character_type.dart';
 import 'package:adventure_pages/models/story_background_motion.dart';
 import 'package:adventure_pages/models/story_choice.dart';
@@ -88,10 +89,16 @@ StorySaveData _savedAt(
   );
 }
 
+String _resolveNames(String text, String heroName, String friendName) {
+  return text
+      .replaceAll('{{heroName}}', heroName)
+      .replaceAll('{{friendName}}', friendName);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('demo story is connected and only Pofuduk uses character layers', () {
+  test('demo story is connected and every page keeps its reactions', () {
     final visited = <String>{};
     final pending = <String>[initialStoryPageId];
     var reachesChapterEnd = false;
@@ -121,18 +128,115 @@ void main() {
     expect(visited, demoStoryPages.keys.toSet());
     expect(reachesChapterEnd, isTrue);
 
-    final layeredPages = demoStoryPages.values
+    for (final page in demoStoryPages.values) {
+      expect(
+        page.boyTapReactions,
+        hasLength(greaterThanOrEqualTo(2)),
+        reason: 'Boy reactions missing on ${page.id}',
+      );
+      expect(
+        page.girlTapReactions,
+        hasLength(greaterThanOrEqualTo(2)),
+        reason: 'Girl reactions missing on ${page.id}',
+      );
+      expect(
+        page.boyTapReactions.map((reaction) => reaction.text).toSet(),
+        isNot(
+          equals(
+            page.girlTapReactions.map((reaction) => reaction.text).toSet(),
+          ),
+        ),
+        reason: 'Boy and girl should react differently on ${page.id}',
+      );
+    }
+
+    expect(boyCharacterPoseAssets.keys.toSet(), CharacterPose.values.toSet());
+    expect(girlCharacterPoseAssets.keys.toSet(), CharacterPose.values.toSet());
+    expect(boyCharacterPoseAssets[CharacterPose.idle], boyIdleImage);
+    expect(girlCharacterPoseAssets[CharacterPose.idle], girlIdleImage);
+  });
+
+  test('clean and embedded backgrounds use matching character layers', () {
+    const cleanBackgrounds = <String, String>{
+      'candy_land': candyVillageBackgroundAlt01,
+      'candy_orientation': candyVillageBackgroundAlt01,
+      'candy_village': candyVillageBackground,
+      'pofuduk_meeting': candyVillageBackground,
+      'pofuduk_explains': candyVillageBackground,
+      'first_candy_choice': candyVillageBackgroundAlt02,
+      'follow_pofuduk': candyVillageBackground,
+      'look_around': candyVillageBackgroundAlt01,
+      'paths_rejoin': candyVillageBackgroundAlt02,
+      'castle_view': candyVillageBackgroundAlt02,
+    };
+    const cleanFallbacks = <String, String>{
+      'candy_land': candyArrivalImage,
+      'candy_orientation': candyArrivalImage,
+      'candy_village': candyArrivalImage,
+      'pofuduk_meeting': candyPofudukImage,
+      'pofuduk_explains': candyPofudukImage,
+      'first_candy_choice': candyPofudukImage,
+      'follow_pofuduk': candyPofudukImage,
+      'look_around': candyArrivalImage,
+      'paths_rejoin': candyCaramelChaseImage,
+      'castle_view': candyCastleShadowImage,
+    };
+    const embeddedPageIds = <String>{
+      'front_yard_meeting',
+      'play_outside',
+      'mysterious_book',
+      'inspect_book',
+      'book_glows',
+      'portal_opens',
+      'pulled_inside',
+      'caramel_warning',
+      'caramel_trap',
+      'caramel_chase',
+      'help_each_other',
+      'bay_bayat_shadow',
+    };
+
+    expect({
+      ...cleanBackgrounds.keys,
+      ...embeddedPageIds,
+    }, demoStoryPages.keys.toSet());
+
+    for (final entry in cleanBackgrounds.entries) {
+      final page = demoStoryPages[entry.key]!;
+      expect(page.backgroundImage, entry.value);
+      expect(page.fallbackBackgroundImage, cleanFallbacks[entry.key]);
+      expect(page.showHeroLayers, isTrue);
+      expect(page.backgroundImage, startsWith('assets/images/backgrounds/'));
+    }
+
+    for (final pageId in embeddedPageIds) {
+      final page = demoStoryPages[pageId]!;
+      expect(page.backgroundImage, startsWith('$storyImagePath/'));
+      expect(page.showHeroLayers, isFalse);
+      expect(page.characterLayers, isEmpty);
+    }
+
+    final pofudukPages = demoStoryPages.values
         .where((page) => page.characterLayers.isNotEmpty)
         .toList();
-    expect(layeredPages, hasLength(1));
-    expect(layeredPages.single.id, 'pofuduk_meeting');
-    expect(layeredPages.single.backgroundImage, candyVillageBackground);
-    expect(layeredPages.single.fallbackBackgroundImage, candyPofudukImage);
-
-    final pofuduk = layeredPages.single.characterLayers.single;
-    expect(pofuduk.assetPath, pofudukWaveImage);
-    expect(pofuduk.tapSoundEffect, pofudukBounceSound);
-    expect(pofuduk.tapSoundEffect, endsWith('pofuduk_bounce.wav'));
+    expect(pofudukPages.map((page) => page.id).toSet(), {
+      'pofuduk_meeting',
+      'pofuduk_explains',
+      'first_candy_choice',
+      'follow_pofuduk',
+      'paths_rejoin',
+    });
+    for (final page in pofudukPages) {
+      expect(page.characterLayers, hasLength(1));
+      final pofuduk = page.characterLayers.single;
+      expect(pofuduk.id, 'pofuduk');
+      expect(pofuduk.assetPath, pofudukWaveImage);
+      expect(pofuduk.isInteractive, isTrue);
+      expect(pofuduk.tapAnimation, 'squash_bounce');
+      expect(pofuduk.dialogueText, 'Pof! Hey, gıdıklanıyorum!');
+      expect(pofuduk.tapSoundEffect, pofudukBounceSound);
+      expect(pofuduk.tapSoundEffect, endsWith('pofuduk_bounce.wav'));
+    }
   });
 
   test('demo contains no other world pages or assets', () {
@@ -181,6 +285,85 @@ void main() {
       demoStoryPages['play_outside']?.backgroundMotion,
       StoryBackgroundMotion.none,
     );
+  });
+
+  test('intro start has a complete playable path to the chapter ending', () {
+    final visited = <String>[];
+    var pageId = initialStoryPageId;
+
+    for (var step = 0; step <= demoStoryPages.length; step++) {
+      visited.add(pageId);
+      final page = demoStoryPages[pageId]!;
+      final choice = switch (pageId) {
+        'first_candy_choice' => page.choices.firstWhere(
+          (choice) => choice.nextPageId == 'follow_pofuduk',
+        ),
+        'caramel_warning' => page.choices.firstWhere(
+          (choice) => choice.nextPageId == 'caramel_chase',
+        ),
+        _ => page.choices.single,
+      };
+
+      if (choice.nextPageId == candyChapterEndPageId) {
+        break;
+      }
+      pageId = choice.nextPageId;
+    }
+
+    expect(visited.first, initialStoryPageId);
+    expect(visited, contains('candy_land'));
+    expect(visited, contains('castle_view'));
+    expect(visited.last, 'bay_bayat_shadow');
+  });
+
+  test('both first-choice branches have a result and rejoin the main path', () {
+    final firstChoiceTargets = demoStoryPages['first_candy_choice']!.choices
+        .map((choice) => choice.nextPageId)
+        .toSet();
+
+    expect(firstChoiceTargets, {'follow_pofuduk', 'look_around'});
+    expect(
+      demoStoryPages['follow_pofuduk']!.choices.single.nextPageId,
+      'caramel_warning',
+    );
+    expect(
+      demoStoryPages['look_around']!.choices.single.nextPageId,
+      'caramel_warning',
+    );
+  });
+
+  test('all supported character names resolve without raw placeholders', () {
+    const identities = <(String, String)>[
+      ('Aras', 'Mina'),
+      ('Mina', 'Aras'),
+      ('Lale', 'Aras'),
+    ];
+
+    for (final page in demoStoryPages.values) {
+      final sourceTexts = <String>[
+        page.narrationText,
+        if (page.titleCardText != null) page.titleCardText!,
+        ...page.choices.map((choice) => choice.text),
+        ...page.boyTapReactions.map((reaction) => reaction.text),
+        ...page.girlTapReactions.map((reaction) => reaction.text),
+      ];
+
+      for (final (heroName, friendName) in identities) {
+        for (final sourceText in sourceTexts) {
+          final resolved = _resolveNames(sourceText, heroName, friendName);
+          expect(
+            resolved,
+            isNot(contains('{{')),
+            reason: 'Unresolved placeholder on page ${page.id}',
+          );
+          expect(
+            resolved,
+            isNot(contains('}}')),
+            reason: 'Unresolved placeholder on page ${page.id}',
+          );
+        }
+      }
+    }
   });
 
   test(

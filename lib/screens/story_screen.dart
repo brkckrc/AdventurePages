@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/story_controller.dart';
 import '../data/demo_story_data.dart';
+import '../models/character_reaction.dart';
 import '../models/character_type.dart';
 import '../models/story_character_layer.dart';
 import '../models/story_choice.dart';
@@ -381,7 +382,8 @@ class _StorySceneState extends State<_StoryScene> {
   @override
   Widget build(BuildContext context) {
     final page = widget.page;
-    if (page.characterLayers.isEmpty) {
+    final characterLayers = _buildCharacterLayers(page);
+    if (characterLayers.isEmpty) {
       return GestureDetector(
         key: ValueKey('story-background-${page.id}'),
         behavior: HitTestBehavior.opaque,
@@ -419,12 +421,50 @@ class _StorySceneState extends State<_StoryScene> {
           ),
         ),
         _StoryCharacterLayers(
-          layers: page.characterLayers,
+          layers: characterLayers,
           audioService: widget.audioService,
           onAssetError: _showLayeredFallback,
         ),
       ],
     );
+  }
+
+  List<StoryCharacterLayer> _buildCharacterLayers(StoryPage page) {
+    return [
+      if (page.showHeroLayers && page.boyTapReactions.isNotEmpty)
+        StoryCharacterLayer(
+          id: 'boy',
+          assetPath:
+              boyCharacterPoseAssets[page.boyDefaultPose] ?? boyIdleImage,
+          x: 0.03,
+          y: 0.18,
+          width: 0.28,
+          height: 0.74,
+          tapAnimation: 'squash_bounce',
+          isInteractive: true,
+          tapSoundEffect: pofudukBounceSound,
+          defaultPose: page.boyDefaultPose,
+          poseAssets: boyCharacterPoseAssets,
+          tapReactions: page.boyTapReactions,
+        ),
+      if (page.showHeroLayers && page.girlTapReactions.isNotEmpty)
+        StoryCharacterLayer(
+          id: 'girl',
+          assetPath:
+              girlCharacterPoseAssets[page.girlDefaultPose] ?? girlIdleImage,
+          x: 0.32,
+          y: 0.18,
+          width: 0.28,
+          height: 0.74,
+          tapAnimation: 'squash_bounce',
+          isInteractive: true,
+          tapSoundEffect: pofudukBounceSound,
+          defaultPose: page.girlDefaultPose,
+          poseAssets: girlCharacterPoseAssets,
+          tapReactions: page.girlTapReactions,
+        ),
+      ...page.characterLayers,
+    ];
   }
 
   void _showLayeredFallback() {
@@ -510,7 +550,10 @@ class _StoryCharacterLayerViewState extends State<_StoryCharacterLayerView>
   late final AnimationController _idleController;
   late final AnimationController _tapController;
   Timer? _dialogueTimer;
-  bool _showDialogue = false;
+  Timer? _tapCooldownTimer;
+  CharacterReaction? _activeReaction;
+  var _nextReactionIndex = 0;
+  var _isTapCoolingDown = false;
 
   @override
   void initState() {
@@ -518,7 +561,10 @@ class _StoryCharacterLayerViewState extends State<_StoryCharacterLayerView>
     _idleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+    );
+    if (widget.layer.idleAnimation != null) {
+      _idleController.repeat(reverse: true);
+    }
     _tapController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 320),
@@ -528,6 +574,7 @@ class _StoryCharacterLayerViewState extends State<_StoryCharacterLayerView>
   @override
   void dispose() {
     _dialogueTimer?.cancel();
+    _tapCooldownTimer?.cancel();
     _idleController.dispose();
     _tapController.dispose();
     super.dispose();
@@ -535,6 +582,9 @@ class _StoryCharacterLayerViewState extends State<_StoryCharacterLayerView>
 
   @override
   Widget build(BuildContext context) {
+    final activePose = _activeReaction?.pose ?? widget.layer.defaultPose;
+    final activeAssetPath =
+        widget.layer.poseAssets[activePose] ?? widget.layer.assetPath;
     final content = AnimatedBuilder(
       animation: Listenable.merge([_idleController, _tapController]),
       builder: (context, child) {
@@ -562,21 +612,29 @@ class _StoryCharacterLayerViewState extends State<_StoryCharacterLayerView>
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            child: Image.asset(
-              widget.layer.assetPath,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                widget.onAssetError();
-                return const SizedBox.shrink();
-              },
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 140),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: Image.asset(
+                activeAssetPath,
+                key: ValueKey(
+                  'character-sprite-${widget.layer.id}-${activePose.name}',
+                ),
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  widget.onAssetError();
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
           ),
-          if (_showDialogue && widget.layer.dialogueText != null)
+          if (_activeReaction != null)
             Positioned(
               left: -12,
               right: -12,
               top: -34,
-              child: _CharacterDialogueBubble(text: widget.layer.dialogueText!),
+              child: _CharacterDialogueBubble(text: _activeReaction!.text),
             ),
         ],
       ),
@@ -594,9 +652,20 @@ class _StoryCharacterLayerViewState extends State<_StoryCharacterLayerView>
   }
 
   Future<void> _handleTap() async {
+    if (_isTapCoolingDown) {
+      return;
+    }
+
+    _isTapCoolingDown = true;
+    _tapCooldownTimer?.cancel();
+    _tapCooldownTimer = Timer(widget.layer.tapCooldown, () {
+      _isTapCoolingDown = false;
+    });
+
+    final reaction = _nextReaction();
     _dialogueTimer?.cancel();
     setState(() {
-      _showDialogue = true;
+      _activeReaction = reaction;
     });
 
     _tapController.forward(from: 0).then((_) {
@@ -605,17 +674,38 @@ class _StoryCharacterLayerViewState extends State<_StoryCharacterLayerView>
       }
     });
 
-    _dialogueTimer = Timer(const Duration(seconds: 2), () {
-      if (!mounted) {
-        return;
-      }
+    if (reaction != null) {
+      _dialogueTimer = Timer(const Duration(seconds: 2), () {
+        if (!mounted) {
+          return;
+        }
 
-      setState(() {
-        _showDialogue = false;
+        setState(() {
+          _activeReaction = null;
+        });
       });
-    });
+    }
 
     await widget.audioService.playSfx(widget.layer.tapSoundEffect);
+  }
+
+  CharacterReaction? _nextReaction() {
+    final reactions = widget.layer.tapReactions;
+    if (reactions.isNotEmpty) {
+      final reaction = reactions[_nextReactionIndex % reactions.length];
+      _nextReactionIndex = (_nextReactionIndex + 1) % reactions.length;
+      return reaction;
+    }
+
+    final dialogueText = widget.layer.dialogueText;
+    if (dialogueText == null) {
+      return null;
+    }
+
+    return CharacterReaction(
+      text: dialogueText,
+      pose: widget.layer.defaultPose,
+    );
   }
 }
 

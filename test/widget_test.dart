@@ -40,9 +40,11 @@ class _FakeAudioService extends AudioService {
   _FakeAudioService() : super(playbackEnabled: false);
 
   String? playedSfx;
+  int playCount = 0;
 
   @override
   Future<void> playSfx(String? assetPath) async {
+    playCount += 1;
     playedSfx = assetPath;
   }
 
@@ -116,6 +118,7 @@ Future<void> _pumpSavedStory(
   AssetBundle? assetBundle,
 }) async {
   final story = StoryScreen.fromSave(
+    key: ValueKey('saved-story-${savedState.currentPageId}'),
     savedState: savedState,
     saveService: saveService,
     audioService: audioService,
@@ -277,7 +280,10 @@ void main() {
 
     await _startWithCharacter(tester, characterLabel: 'Erkek karakter');
 
-    expect(find.textContaining('Aras ve Mina güneş yavaşça'), findsOneWidget);
+    expect(
+      find.textContaining('Aras ve Mina evin önünde buluştu'),
+      findsOneWidget,
+    );
     expect(find.textContaining('{{heroName}}'), findsNothing);
     expect(find.textContaining('{{friendName}}'), findsNothing);
     expect(saveService.data?.selectedCharacterType, CharacterType.boy);
@@ -293,7 +299,10 @@ void main() {
 
     await _startWithCharacter(tester, characterLabel: 'Kız karakter');
 
-    expect(find.textContaining('Mina ve Aras güneş yavaşça'), findsOneWidget);
+    expect(
+      find.textContaining('Mina ve Aras evin önünde buluştu'),
+      findsOneWidget,
+    );
     expect(saveService.data?.selectedCharacterType, CharacterType.girl);
     expect(saveService.data?.heroName, 'Mina');
     expect(saveService.data?.friendName, 'Aras');
@@ -311,7 +320,10 @@ void main() {
       customName: 'Lale',
     );
 
-    expect(find.textContaining('Lale ve Aras güneş yavaşça'), findsOneWidget);
+    expect(
+      find.textContaining('Lale ve Aras evin önünde buluştu'),
+      findsOneWidget,
+    );
     expect(saveService.data?.heroName, 'Lale');
     expect(saveService.data?.friendName, 'Aras');
   });
@@ -331,7 +343,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Karakter Seçimi'), findsNothing);
-    expect(find.textContaining('şeker çiçeklerinin arasında'), findsOneWidget);
+    expect(
+      find.textContaining('Şeker ağaçlarının arasındaki yol'),
+      findsOneWidget,
+    );
     expect(saveService.data?.currentPageId, 'look_around');
   });
 
@@ -389,11 +404,17 @@ void main() {
     await tester.tapAt(Offset(screenSize.width - 40, 64));
     await tester.pumpAndSettle();
     expect(find.text('Metni göster'), findsOneWidget);
-    expect(find.textContaining('Mina ve Aras güneş yavaşça'), findsNothing);
+    expect(
+      find.textContaining('Mina ve Aras evin önünde buluştu'),
+      findsNothing,
+    );
 
     await tester.tap(find.text('Metni göster'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Mina ve Aras güneş yavaşça'), findsOneWidget);
+    expect(
+      find.textContaining('Mina ve Aras evin önünde buluştu'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('story panel stays compact and bottom aligned in landscape', (
@@ -458,7 +479,7 @@ void main() {
       const ValueKey('story-panel-scroll-view-caramel_warning'),
     );
     final narration = find.textContaining(
-      'Yolun önünde yapışkan karamel dalgaları',
+      'İki yol, fokurdamaya başlayan geniş bir karamel deresinin',
     );
     final safeChoice = find.byKey(
       const ValueKey('choice-button-caramel_chase'),
@@ -579,6 +600,171 @@ void main() {
     expect(find.text('Devam et'), findsOneWidget);
   });
 
+  testWidgets('embedded story backgrounds do not render hero layers', (
+    tester,
+  ) async {
+    final savedState = _savedAt(
+      'front_yard_meeting',
+      checkpointPageId: 'front_yard_meeting',
+      characterType: CharacterType.boy,
+    );
+    await _pumpSavedStory(
+      tester,
+      savedState: savedState,
+      saveService: _MemorySaveService(data: savedState),
+    );
+
+    final background = find.byKey(
+      const ValueKey('story-background-front_yard_meeting'),
+    );
+    final image = tester.widget<Image>(
+      find.descendant(of: background, matching: find.byType(Image)),
+    );
+    expect((image.image as AssetImage).assetName, introMeetingImage);
+    expect(find.byKey(const ValueKey('character-layer-boy')), findsNothing);
+    expect(find.byKey(const ValueKey('character-layer-girl')), findsNothing);
+    expect(find.byKey(const ValueKey('character-layer-pofuduk')), findsNothing);
+  });
+
+  testWidgets(
+    'clean background renders one naturally placed hero layer per character',
+    (tester) async {
+      final savedState = _savedAt(
+        'candy_land',
+        checkpointPageId: 'candy_land',
+        characterType: CharacterType.boy,
+      );
+      await _pumpSavedStory(
+        tester,
+        savedState: savedState,
+        saveService: _MemorySaveService(data: savedState),
+      );
+
+      final background = find.byKey(
+        const ValueKey('story-background-candy_land'),
+      );
+      final image = tester.widget<Image>(
+        find.descendant(of: background, matching: find.byType(Image)),
+      );
+      final boy = find.byKey(const ValueKey('character-layer-boy'));
+      final girl = find.byKey(const ValueKey('character-layer-girl'));
+      final backgroundMotion = find.byKey(
+        const ValueKey('story-background-motion-slowZoomOut'),
+      );
+
+      expect(
+        (image.image as AssetImage).assetName,
+        candyVillageBackgroundAlt01,
+      );
+      expect(boy, findsOneWidget);
+      expect(girl, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('character-layer-pofuduk')),
+        findsNothing,
+      );
+      expect(find.ancestor(of: boy, matching: backgroundMotion), findsNothing);
+      expect(find.ancestor(of: girl, matching: backgroundMotion), findsNothing);
+
+      final screenSize =
+          tester.view.physicalSize / tester.view.devicePixelRatio;
+      final boyRect = tester.getRect(boy);
+      final girlRect = tester.getRect(girl);
+      expect(boyRect.height, closeTo(screenSize.height * 0.74, 1));
+      expect(girlRect.height, closeTo(screenSize.height * 0.74, 1));
+      expect(boyRect.bottom, closeTo(screenSize.height * 0.92, 1));
+      expect(girlRect.bottom, closeTo(screenSize.height * 0.92, 1));
+      expect(boyRect.right, lessThanOrEqualTo(girlRect.left));
+    },
+  );
+
+  testWidgets(
+    'boy and girl taps use scene reactions, poses, cooldown, and do not advance',
+    (tester) async {
+      final savedState = _savedAt(
+        'candy_orientation',
+        checkpointPageId: 'candy_land',
+        characterType: CharacterType.boy,
+      );
+      final saveService = _MemorySaveService(data: savedState);
+      final audioService = _FakeAudioService();
+      await _pumpSavedStory(
+        tester,
+        savedState: savedState,
+        saveService: saveService,
+        audioService: audioService,
+      );
+
+      final boy = find.byKey(const ValueKey('character-layer-boy'));
+      final girl = find.byKey(const ValueKey('character-layer-girl'));
+      expect(boy, findsOneWidget);
+      expect(girl, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('character-sprite-boy-thinking')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('character-sprite-girl-thinking')),
+        findsOneWidget,
+      );
+
+      final boyRect = tester.getRect(boy);
+      final boyTapPoint = Offset(boyRect.center.dx, boyRect.top + 52);
+      await tester.tapAt(boyTapPoint);
+      await tester.pump();
+
+      expect(find.text('Şu evin çatısı bisküvi!'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('character-sprite-boy-pointing')),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 120));
+      final boyTransforms = tester.widgetList<Transform>(
+        find.descendant(of: boy, matching: find.byType(Transform)),
+      );
+      expect(
+        boyTransforms.any((transform) => transform.transform.storage[0] > 1.01),
+        isTrue,
+      );
+      expect(audioService.playedSfx, pofudukBounceSound);
+      expect(audioService.playCount, 1);
+      expect(saveService.data?.currentPageId, 'candy_orientation');
+      expect(
+        find.byKey(const ValueKey('panel-candy_orientation')),
+        findsOneWidget,
+      );
+
+      await tester.tapAt(boyTapPoint);
+      await tester.pump();
+      expect(audioService.playCount, 1);
+      expect(find.text('Şu evin çatısı bisküvi!'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 620));
+      await tester.tapAt(boyTapPoint);
+      await tester.pump();
+      expect(find.text('Bu sessizlik biraz tuhaf.'), findsOneWidget);
+      expect(audioService.playCount, 2);
+
+      await tester.pump(const Duration(milliseconds: 2160));
+      expect(find.text('Bu sessizlik biraz tuhaf.'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('character-sprite-boy-thinking')),
+        findsOneWidget,
+      );
+
+      final girlRect = tester.getRect(girl);
+      await tester.tapAt(Offset(girlRect.center.dx, girlRect.top + 52));
+      await tester.pump();
+
+      expect(find.text('Vanilya kokusu o bacadan geliyor.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('character-sprite-girl-pointing')),
+        findsOneWidget,
+      );
+      expect(audioService.playCount, 3);
+      expect(saveService.data?.currentPageId, 'candy_orientation');
+    },
+  );
+
   testWidgets('Pofuduk layer tap shows dialogue, keeps panel, and plays WAV', (
     tester,
   ) async {
@@ -596,27 +782,81 @@ void main() {
     );
 
     final pofuduk = find.byKey(const ValueKey('character-layer-pofuduk'));
+    final boy = find.byKey(const ValueKey('character-layer-boy'));
+    final girl = find.byKey(const ValueKey('character-layer-girl'));
     final backgroundMotion = find.byKey(
       const ValueKey('story-background-motion-slowZoomIn'),
     );
     expect(pofuduk, findsOneWidget);
+    expect(boy, findsOneWidget);
+    expect(girl, findsOneWidget);
     expect(backgroundMotion, findsOneWidget);
     expect(
       find.ancestor(of: pofuduk, matching: backgroundMotion),
       findsNothing,
     );
+    expect(find.ancestor(of: boy, matching: backgroundMotion), findsNothing);
+    expect(find.ancestor(of: girl, matching: backgroundMotion), findsNothing);
     expect(find.byKey(const ValueKey('panel-pofuduk_meeting')), findsOneWidget);
 
-    await tester.tapAt(tester.getTopLeft(pofuduk) + const Offset(30, 30));
+    final pofudukTapPoint = tester.getCenter(pofuduk);
+    await tester.tapAt(pofudukTapPoint);
     await tester.pump();
 
     expect(find.text('Pof! Hey, gıdıklanıyorum!'), findsOneWidget);
     expect(find.text('Metni göster'), findsNothing);
     expect(find.byKey(const ValueKey('panel-pofuduk_meeting')), findsOneWidget);
     expect(audioService.playedSfx, pofudukBounceSound);
+    expect(audioService.playCount, 1);
+    expect(saveService.data?.currentPageId, 'pofuduk_meeting');
+
+    await tester.pump(const Duration(milliseconds: 120));
+    final pofudukTransforms = tester.widgetList<Transform>(
+      find.descendant(of: pofuduk, matching: find.byType(Transform)),
+    );
+    expect(
+      pofudukTransforms.any(
+        (transform) => transform.transform.storage[0] > 1.05,
+      ),
+      isTrue,
+    );
+
+    await tester.tapAt(pofudukTapPoint);
+    await tester.pump();
+    expect(audioService.playCount, 1);
+    expect(saveService.data?.currentPageId, 'pofuduk_meeting');
 
     await tester.pump(const Duration(milliseconds: 2200));
     expect(find.text('Pof! Hey, gıdıklanıyorum!'), findsNothing);
+  });
+
+  testWidgets('Pofuduk stays interactive on clean continuation scenes', (
+    tester,
+  ) async {
+    for (final pageId in ['pofuduk_explains', 'follow_pofuduk']) {
+      final savedState = _savedAt(pageId, checkpointPageId: 'pofuduk_meeting');
+      final saveService = _MemorySaveService(data: savedState);
+      final audioService = _FakeAudioService();
+      await _pumpSavedStory(
+        tester,
+        savedState: savedState,
+        saveService: saveService,
+        audioService: audioService,
+      );
+
+      final pofuduk = find.byKey(const ValueKey('character-layer-pofuduk'));
+      expect(pofuduk, findsOneWidget);
+
+      await tester.tapAt(tester.getCenter(pofuduk));
+      await tester.pump();
+
+      expect(find.text('Pof! Hey, gıdıklanıyorum!'), findsOneWidget);
+      expect(find.byKey(ValueKey('panel-$pageId')), findsOneWidget);
+      expect(find.text('Metni göster'), findsNothing);
+      expect(audioService.playedSfx, pofudukBounceSound);
+      expect(audioService.playCount, 1);
+      expect(saveService.data?.currentPageId, pageId);
+    }
   });
 
   testWidgets('layered Pofuduk scene falls back to the combined image', (
@@ -647,6 +887,8 @@ void main() {
 
     expect(fallback, findsOneWidget);
     expect(find.byKey(const ValueKey('character-layer-pofuduk')), findsNothing);
+    expect(find.byKey(const ValueKey('character-layer-boy')), findsNothing);
+    expect(find.byKey(const ValueKey('character-layer-girl')), findsNothing);
     final image = tester.widget<Image>(
       find.descendant(of: fallback, matching: find.byType(Image)),
     );
@@ -668,13 +910,16 @@ void main() {
       saveService: saveService,
     );
 
-    expect(find.text('Pofuduk\'u takip et'), findsOneWidget);
-    expect(find.text('Önce etrafı incele'), findsOneWidget);
-    await tester.tap(find.text('Önce etrafı incele'));
+    expect(find.text('Karamel köprüsünden geç'), findsOneWidget);
+    expect(find.text('Şeker ağaçlarından dolaş'), findsOneWidget);
+    await tester.tap(find.text('Şeker ağaçlarından dolaş'));
     await tester.pumpAndSettle();
 
     expect(saveService.data?.currentPageId, 'look_around');
-    expect(find.textContaining('şeker çiçeklerinin arasında'), findsOneWidget);
+    expect(
+      find.textContaining('Şeker ağaçlarının arasındaki yol'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('chapter end is reachable and restart keeps character identity', (
@@ -706,7 +951,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('chapter-end-restart-button')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Lale ve Aras pamuk şeker'), findsOneWidget);
+    expect(
+      find.textContaining('Lale ve Aras yumuşacık bir tepeye'),
+      findsOneWidget,
+    );
     expect(saveService.data?.currentPageId, candyChapterStartPageId);
     expect(saveService.data?.heroName, 'Lale');
     expect(saveService.data?.friendName, 'Aras');

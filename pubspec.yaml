@@ -58,6 +58,8 @@ flutter:
   assets:
     - assets/images/story/
     - assets/images/backgrounds/candy/
+    - assets/images/characters/boy/
+    - assets/images/characters/girl/
     - assets/images/characters/pofuduk/
     - assets/audio/sfx/
 

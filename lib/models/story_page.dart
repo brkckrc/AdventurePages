@@ -1,3 +1,4 @@
+import 'character_reaction.dart';
 import 'story_choice.dart';
 import 'story_background_motion.dart';
 import 'story_character_layer.dart';
@@ -17,6 +18,11 @@ class StoryPage {
     this.isCheckpoint = false,
     this.characterLayers = const [],
     this.fallbackBackgroundImage,
+    this.showHeroLayers = true,
+    this.boyDefaultPose = CharacterPose.idle,
+    this.girlDefaultPose = CharacterPose.idle,
+    this.boyTapReactions = const [],
+    this.girlTapReactions = const [],
     required this.choices,
   });
 
@@ -33,5 +39,10 @@ class StoryPage {
   final bool isCheckpoint;
   final List<StoryCharacterLayer> characterLayers;
   final String? fallbackBackgroundImage;
+  final bool showHeroLayers;
+  final CharacterPose boyDefaultPose;
+  final CharacterPose girlDefaultPose;
+  final List<CharacterReaction> boyTapReactions;
+  final List<CharacterReaction> girlTapReactions;
   final List<StoryChoice> choices;
 }
